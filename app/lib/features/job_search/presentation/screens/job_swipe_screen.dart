@@ -132,10 +132,28 @@ class _JobSwipeCard extends StatelessWidget {
 
   final Job job;
 
+  /// A short, sentence-aware excerpt rather than an arbitrary character cut,
+  /// so the card reads as a summary and doesn't end mid-word or mid-sentence.
   String get _snippet {
-    final description = job.description?.trim();
-    if (description == null || description.isEmpty) return 'Keine Beschreibung verfügbar.';
-    return description.length > 260 ? '${description.substring(0, 260)}…' : description;
+    final raw = job.description?.trim();
+    if (raw == null || raw.isEmpty) return 'Keine Beschreibung verfügbar.';
+
+    final normalized = raw.replaceAll(RegExp(r'\s+'), ' ');
+    const targetLength = 240;
+    if (normalized.length <= targetLength) return normalized;
+
+    final window = normalized.substring(0, targetLength);
+    final sentenceEnd = [
+      window.lastIndexOf('. '),
+      window.lastIndexOf('! '),
+      window.lastIndexOf('? '),
+    ].reduce((a, b) => a > b ? a : b);
+    if (sentenceEnd > targetLength ~/ 3) {
+      return window.substring(0, sentenceEnd + 1);
+    }
+
+    final wordEnd = window.lastIndexOf(' ');
+    return '${window.substring(0, wordEnd > 0 ? wordEnd : targetLength)}…';
   }
 
   @override
