@@ -13,22 +13,11 @@ import '../providers/cv_profile_provider.dart';
 const _uuid = Uuid();
 
 Future<void> _importCv(BuildContext context, WidgetRef ref) async {
-  final result = await FilePicker.platform.pickFiles(
+  final files = await FilePicker.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['pdf'],
-    withData: true,
   );
-  if (result == null || result.files.isEmpty) return;
-
-  final bytes = result.files.single.bytes;
-  if (bytes == null) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Datei konnte nicht gelesen werden.')),
-      );
-    }
-    return;
-  }
+  if (files.isEmpty) return;
 
   if (!context.mounted) return;
   showDialog<void>(
@@ -38,6 +27,7 @@ Future<void> _importCv(BuildContext context, WidgetRef ref) async {
   );
 
   try {
+    final bytes = await files.single.readAsBytes();
     final json = await ref
         .read(cvImportRemoteDataSourceProvider)
         .importFromPdfBase64(base64Encode(bytes));
@@ -153,7 +143,7 @@ class CvProfileEditorScreen extends ConsumerWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title, {super.key, this.onAdd});
+  const _SectionHeader(this.title, {this.onAdd});
 
   final String title;
   final VoidCallback? onAdd;
@@ -172,7 +162,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint(this.text, {super.key});
+  const _EmptyHint(this.text);
 
   final String text;
 
@@ -186,7 +176,7 @@ class _EmptyHint extends StatelessWidget {
 }
 
 class _PersonalInfoForm extends ConsumerStatefulWidget {
-  const _PersonalInfoForm({super.key, required this.personalInfo});
+  const _PersonalInfoForm({required this.personalInfo});
 
   final PersonalInfo personalInfo;
 
@@ -277,7 +267,6 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
 
 class _ExperienceTile extends StatelessWidget {
   const _ExperienceTile({
-    super.key,
     required this.experience,
     required this.onTap,
     required this.onDelete,
@@ -307,7 +296,6 @@ class _ExperienceTile extends StatelessWidget {
 
 class _EducationTile extends StatelessWidget {
   const _EducationTile({
-    super.key,
     required this.education,
     required this.onTap,
     required this.onDelete,
@@ -336,7 +324,7 @@ class _EducationTile extends StatelessWidget {
 }
 
 class _ExperienceDialog extends StatefulWidget {
-  const _ExperienceDialog({super.key, this.existing});
+  const _ExperienceDialog({this.existing});
 
   final WorkExperience? existing;
 
@@ -430,7 +418,7 @@ class _ExperienceDialogState extends State<_ExperienceDialog> {
 }
 
 class _EducationDialog extends StatefulWidget {
-  const _EducationDialog({super.key, this.existing});
+  const _EducationDialog({this.existing});
 
   final Education? existing;
 
@@ -518,7 +506,7 @@ class _EducationDialogState extends State<_EducationDialog> {
 }
 
 class _SkillsEditor extends ConsumerStatefulWidget {
-  const _SkillsEditor({super.key, required this.skills});
+  const _SkillsEditor({required this.skills});
 
   final List<String> skills;
 

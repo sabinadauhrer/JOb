@@ -20,7 +20,7 @@ class JobRemoteDataSource {
         queryParameters: {
           'query': query,
           'location': ?normalizedLocation,
-          if (radius != null) 'radius': radius,
+          'radius': ?radius,
           'page': page,
           'size': size,
         },

@@ -33,8 +33,8 @@ class CvTailorRemoteDataSource {
         data: {
           'profile': profile.toJson(),
           'jobDescription': jobDescription,
-          if (jobTitle != null) 'jobTitle': jobTitle,
-          if (company != null) 'company': company,
+          'jobTitle': ?jobTitle,
+          'company': ?company,
         },
       );
       return CvTailorResult.fromJson(response.data!);

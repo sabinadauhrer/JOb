@@ -21,7 +21,7 @@ class ApplicationSendRemoteDataSource {
           'subject': subject,
           'body': body,
           'cvPdfBase64': cvPdfBase64,
-          if (cvFileName != null) 'cvFileName': cvFileName,
+          'cvFileName': ?cvFileName,
         },
       );
     } on DioException catch (e) {
