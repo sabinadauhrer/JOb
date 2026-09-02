@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const jobSchema = z.object({
   id: z.string(),
-  source: z.literal("bundesagentur"),
+  source: z.enum(["bundesagentur", "arbeitnow"]),
   title: z.string(),
   company: z.string().optional(),
   location: z.string().optional(),

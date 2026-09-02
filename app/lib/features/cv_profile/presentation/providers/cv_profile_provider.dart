@@ -2,10 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/dio_client.dart';
 import '../../data/cv_profile_repository.dart';
+import '../../data/cv_tailor_remote_data_source.dart';
 import '../../domain/models/cv_profile.dart';
 
 final cvProfileRepositoryProvider = Provider<CvProfileRepository>((ref) {
   return CvProfileRepository(ref.watch(sharedPreferencesProvider));
+});
+
+final cvTailorRemoteDataSourceProvider = Provider<CvTailorRemoteDataSource>((ref) {
+  return CvTailorRemoteDataSource(ref.watch(dioProvider));
 });
 
 class CvProfileNotifier extends Notifier<CvProfile> {

@@ -47,6 +47,8 @@ class JobDetailScreen extends ConsumerWidget {
                   onPressed: () => CvMatchSheet.show(
                     context,
                     jobDescription: job.description ?? '',
+                    jobTitle: job.title,
+                    company: job.company,
                   ),
                   icon: const Icon(Icons.compare_arrows),
                   label: const Text('CV mit dieser Stelle abgleichen'),

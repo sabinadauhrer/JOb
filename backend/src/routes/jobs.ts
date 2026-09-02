@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { getJobDetail, searchJobs } from "../adapters/bundesagenturJobAdapter";
+import * as bundesagentur from "../adapters/bundesagenturJobAdapter";
+import * as arbeitnow from "../adapters/arbeitnowJobAdapter";
+import type { Job } from "../schemas/job";
 
 export const jobsRouter = Router();
 
@@ -14,23 +16,40 @@ jobsRouter.get("/search", async (req, res) => {
   const page = req.query["page"] ? Number(req.query["page"]) : undefined;
   const size = req.query["size"] ? Number(req.query["size"]) : undefined;
 
-  try {
-    const result = await searchJobs({ query, location, radius, page, size });
-    res.json(result);
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : "job search failed" });
+  const results = await Promise.allSettled([
+    bundesagentur.searchJobs({ query, location, radius, page, size }),
+    arbeitnow.searchJobs({ query, location, page, size }),
+  ]);
+
+  const jobs: Job[] = [];
+  let hasMore = false;
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      jobs.push(...result.value.jobs);
+      hasMore = hasMore || result.value.hasMore;
+    }
   }
+
+  if (jobs.length === 0 && results.every((r) => r.status === "rejected")) {
+    res.status(502).json({ error: "job search failed for all sources" });
+    return;
+  }
+
+  res.json({ jobs, page: page ?? 1, hasMore });
 });
 
 jobsRouter.get("/:source/:id", async (req, res) => {
   const { source, id } = req.params;
-  if (source !== "bundesagentur") {
-    res.status(400).json({ error: `unsupported job source: ${source}` });
-    return;
-  }
   try {
-    const job = await getJobDetail(id);
-    res.json(job);
+    if (source === "bundesagentur") {
+      res.json(await bundesagentur.getJobDetail(id));
+      return;
+    }
+    if (source === "arbeitnow") {
+      res.json(await arbeitnow.getJobDetail(id));
+      return;
+    }
+    res.status(400).json({ error: `unsupported job source: ${source}` });
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "job detail lookup failed" });
   }
