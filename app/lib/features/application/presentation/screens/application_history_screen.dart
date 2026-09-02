@@ -3,44 +3,115 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../job_search/domain/models/saved_job.dart';
+import '../../../job_search/presentation/providers/saved_jobs_provider.dart';
 import '../../domain/models/application.dart';
 import '../providers/application_provider.dart';
 
-class ApplicationHistoryScreen extends ConsumerWidget {
+class ApplicationHistoryScreen extends StatelessWidget {
   const ApplicationHistoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Bewerbungen'),
+          bottom: const TabBar(
+            tabs: [Tab(text: 'Bewerbungen'), Tab(text: 'Gemerkt')],
+          ),
+        ),
+        body: const TabBarView(
+          children: [_ApplicationsTab(), _SavedJobsTab()],
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicationsTab extends ConsumerWidget {
+  const _ApplicationsTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final applications = ref.watch(applicationsNotifierProvider);
     final sorted = [...applications]..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bewerbungen')),
-      body: sorted.isEmpty
-          ? _EmptyState(onSearchJobs: () => context.go('/jobs'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: sorted.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final application = sorted[index];
-                return _ApplicationTile(
-                  application: application,
-                  onStatusChanged: (status) => ref
-                      .read(applicationsNotifierProvider.notifier)
-                      .updateStatus(application.id, status),
-                  onDelete: () =>
-                      ref.read(applicationsNotifierProvider.notifier).remove(application.id),
-                );
-              },
-            ),
+    if (sorted.isEmpty) {
+      return _EmptyState(
+        icon: Icons.history_edu_outlined,
+        title: 'Noch keine Bewerbungen',
+        message: 'Markiere Stellen auf der Detailseite als "beworben", '
+            'damit sie hier mit Status und Verlauf erscheinen.',
+        onSearchJobs: () => context.go('/jobs'),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: sorted.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final application = sorted[index];
+        return _ApplicationTile(
+          application: application,
+          onStatusChanged: (status) =>
+              ref.read(applicationsNotifierProvider.notifier).updateStatus(application.id, status),
+          onDelete: () => ref.read(applicationsNotifierProvider.notifier).remove(application.id),
+        );
+      },
+    );
+  }
+}
+
+class _SavedJobsTab extends ConsumerWidget {
+  const _SavedJobsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final savedJobs = ref.watch(savedJobsNotifierProvider);
+    final sorted = [...savedJobs]..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+
+    if (sorted.isEmpty) {
+      return _EmptyState(
+        icon: Icons.favorite_border,
+        title: 'Noch keine gemerkten Stellen',
+        message: 'In der Kartenansicht der Jobsuche nach rechts wischen (oder ❤️ tippen), '
+            'um Stellen hier zu sammeln.',
+        onSearchJobs: () => context.go('/jobs'),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: sorted.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final job = sorted[index];
+        return _SavedJobTile(
+          job: job,
+          onOpen: () => context.push('/jobs/${job.jobSource}/${job.jobId}'),
+          onRemove: () => ref
+              .read(savedJobsNotifierProvider.notifier)
+              .remove(jobSource: job.jobSource, jobId: job.jobId),
+        );
+      },
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onSearchJobs});
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.onSearchJobs,
+  });
 
+  final IconData icon;
+  final String title;
+  final String message;
   final VoidCallback onSearchJobs;
 
   @override
@@ -51,24 +122,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.history_edu_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
-            Text(
-              'Noch keine Bewerbungen',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
+            Text(title, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text(
-              'Markiere Stellen auf der Detailseite als "beworben", '
-              'damit sie hier mit Status und Verlauf erscheinen.',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onSearchJobs,
@@ -134,6 +192,28 @@ class _ApplicationTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SavedJobTile extends StatelessWidget {
+  const _SavedJobTile({required this.job, required this.onOpen, required this.onRemove});
+
+  final SavedJob job;
+  final VoidCallback onOpen;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        title: Text(job.title),
+        subtitle: Text(
+          [job.company, job.location].where((s) => s != null && s.isNotEmpty).join(' · '),
+        ),
+        onTap: onOpen,
+        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: onRemove),
       ),
     );
   }

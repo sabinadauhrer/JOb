@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/job_search_provider.dart';
 import '../widgets/job_list_tile.dart';
+import 'job_swipe_screen.dart';
 
 class JobSearchScreen extends ConsumerStatefulWidget {
   const JobSearchScreen({super.key});
@@ -50,7 +51,20 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
     final state = ref.watch(jobSearchNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Jobsuche')),
+      appBar: AppBar(
+        title: const Text('Jobsuche'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.style_outlined),
+            tooltip: 'Kartenansicht',
+            onPressed: state.jobs.isEmpty
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => JobSwipeScreen(jobs: state.jobs)),
+                  ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
