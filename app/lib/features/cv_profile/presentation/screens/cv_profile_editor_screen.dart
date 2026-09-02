@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/models/cv_profile.dart';
+import '../../domain/services/cv_pdf_builder.dart';
 import '../providers/cv_profile_provider.dart';
 
 const _uuid = Uuid();
@@ -15,7 +17,18 @@ class CvProfileEditorScreen extends ConsumerWidget {
     final profile = ref.watch(cvProfileNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mein CV')),
+      appBar: AppBar(
+        title: const Text('Mein CV'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Als PDF exportieren',
+            onPressed: () => Printing.layoutPdf(
+              onLayout: (_) => const CvPdfBuilder().build(profile),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
