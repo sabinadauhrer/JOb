@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../application/presentation/providers/application_provider.dart';
+import '../../../cv_profile/presentation/widgets/cv_match_sheet.dart';
 import '../providers/job_search_provider.dart';
 
 class JobDetailScreen extends ConsumerWidget {
@@ -40,6 +41,18 @@ class JobDetailScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => CvMatchSheet.show(
+                    context,
+                    jobDescription: job.description ?? '',
+                  ),
+                  icon: const Icon(Icons.compare_arrows),
+                  label: const Text('CV mit dieser Stelle abgleichen'),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
