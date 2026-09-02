@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -8,6 +11,52 @@ import '../../domain/services/cv_pdf_builder.dart';
 import '../providers/cv_profile_provider.dart';
 
 const _uuid = Uuid();
+
+Future<void> _importCv(BuildContext context, WidgetRef ref) async {
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+    withData: true,
+  );
+  if (result == null || result.files.isEmpty) return;
+
+  final bytes = result.files.single.bytes;
+  if (bytes == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Datei konnte nicht gelesen werden.')),
+      );
+    }
+    return;
+  }
+
+  if (!context.mounted) return;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+    final json = await ref
+        .read(cvImportRemoteDataSourceProvider)
+        .importFromPdfBase64(base64Encode(bytes));
+    ref.read(cvProfileNotifierProvider.notifier).replaceFromImportedJson(json);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('CV importiert. Bitte prüfen und ggf. anpassen.')),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import fehlgeschlagen: $e')),
+      );
+    }
+  }
+}
 
 class CvProfileEditorScreen extends ConsumerWidget {
   const CvProfileEditorScreen({super.key});
@@ -20,6 +69,11 @@ class CvProfileEditorScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Mein CV'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file_outlined),
+            tooltip: 'CV importieren (PDF)',
+            onPressed: () => _importCv(context, ref),
+          ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
             tooltip: 'Als PDF exportieren',

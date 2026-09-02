@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../application/presentation/widgets/apply_confirm_sheet.dart';
 import '../../domain/models/job.dart';
-import '../../domain/models/saved_job.dart';
-import '../providers/saved_jobs_provider.dart';
 
 class JobSwipeScreen extends ConsumerStatefulWidget {
   const JobSwipeScreen({super.key, required this.jobs});
@@ -16,22 +15,20 @@ class JobSwipeScreen extends ConsumerStatefulWidget {
 
 class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
   late final List<Job> _queue = [...widget.jobs];
-  int _savedCount = 0;
+  int _sentCount = 0;
 
-  void _decide(Job job, {required bool interested}) {
-    if (interested) {
-      ref.read(savedJobsNotifierProvider.notifier).save(
-        SavedJob(
-          jobSource: job.source,
-          jobId: job.id,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          savedAt: DateTime.now(),
-        ),
-      );
-      _savedCount++;
+  /// Opens the apply-confirmation sheet for a right-swipe/like. Returns
+  /// whether the card should leave the deck (a decision was actually made -
+  /// sent or saved for later) as opposed to being cancelled back to the deck.
+  Future<bool> _confirmLike(Job job) async {
+    final outcome = await ApplyConfirmSheet.show(context, job: job);
+    if (outcome == ApplyOutcome.sent && mounted) {
+      setState(() => _sentCount++);
     }
+    return outcome != null;
+  }
+
+  void _skip(Job job) {
     setState(() => _queue.removeWhere((j) => j.source == job.source && j.id == job.id));
   }
 
@@ -43,7 +40,7 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Center(child: Text('$_savedCount gemerkt')),
+            child: Center(child: Text('$_sentCount gesendet')),
           ),
         ],
       ),
@@ -72,10 +69,11 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
                         color: Colors.redAccent,
                         icon: Icons.close,
                       ),
-                      onDismissed: (direction) => _decide(
-                        _queue.first,
-                        interested: direction == DismissDirection.startToEnd,
-                      ),
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.endToStart) return true;
+                        return _confirmLike(_queue.first);
+                      },
+                      onDismissed: (_) => setState(() => _queue.removeAt(0)),
                       child: _JobSwipeCard(job: _queue.first),
                     ),
                   ),
@@ -86,13 +84,20 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
                       FloatingActionButton(
                         heroTag: 'skip',
                         backgroundColor: Colors.redAccent,
-                        onPressed: () => _decide(_queue.first, interested: false),
+                        onPressed: () => _skip(_queue.first),
                         child: const Icon(Icons.close),
                       ),
                       FloatingActionButton(
                         heroTag: 'like',
                         backgroundColor: Colors.green,
-                        onPressed: () => _decide(_queue.first, interested: true),
+                        onPressed: () async {
+                          final job = _queue.first;
+                          if (await _confirmLike(job)) {
+                            setState(() => _queue.removeWhere(
+                              (j) => j.source == job.source && j.id == job.id,
+                            ));
+                          }
+                        },
                         child: const Icon(Icons.favorite),
                       ),
                     ],

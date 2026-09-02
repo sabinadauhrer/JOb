@@ -3,12 +3,17 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/network/dio_client.dart';
 import '../../data/application_repository.dart';
+import '../../data/application_send_remote_data_source.dart';
 import '../../domain/models/application.dart';
 
 const _uuid = Uuid();
 
 final applicationRepositoryProvider = Provider<ApplicationRepository>((ref) {
   return ApplicationRepository(ref.watch(sharedPreferencesProvider));
+});
+
+final applicationSendRemoteDataSourceProvider = Provider<ApplicationSendRemoteDataSource>((ref) {
+  return ApplicationSendRemoteDataSource(ref.watch(dioProvider));
 });
 
 class ApplicationsNotifier extends Notifier<List<JobApplication>> {
