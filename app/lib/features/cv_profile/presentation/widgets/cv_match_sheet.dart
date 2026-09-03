@@ -74,7 +74,13 @@ class CvMatchSheet extends ConsumerWidget {
                 children: [
                   for (final skill in result.matchedSkills)
                     Chip(
-                      avatar: const Icon(Icons.check, size: 18),
+                      avatar: Image.asset(
+                        'assets/icons/icon_check.png',
+                        width: 18,
+                        height: 18,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.check, size: 18),
+                      ),
                       label: Text(skill),
                     ),
                 ],
@@ -160,7 +166,16 @@ class _TailorSectionState extends ConsumerState<_TailorSection> {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _future == null ? _generate : null,
-            icon: const Icon(Icons.auto_awesome),
+            icon: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/icons/icon_ai.png',
+                width: 22,
+                height: 22,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.auto_awesome),
+              ),
+            ),
             label: const Text('Anschreiben generieren'),
           ),
         ),

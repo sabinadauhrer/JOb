@@ -36,6 +36,14 @@ class CvJobMatcher {
     return pattern.hasMatch(text);
   }
 
+  /// Which of the curated skill keywords are mentioned in [text], regardless
+  /// of any CV profile - used to show a job posting's required skills as
+  /// short tags instead of the full (often long) description text.
+  List<String> extractSkills(String? text) {
+    if (text == null || text.isEmpty) return [];
+    return commonSkillKeywords.where((skill) => _mentions(text, skill)).toList();
+  }
+
   CvMatchResult match(CvProfile profile, String jobDescription) {
     final matchedSkills = profile.skills
         .where((skill) => _mentions(jobDescription, skill))

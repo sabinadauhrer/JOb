@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/dio_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -68,6 +69,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(width: 12),
               TextButton(onPressed: _resetBackendUrl, child: const Text('Zurücksetzen')),
             ],
+          ),
+          const Divider(height: 32),
+          Image.asset(
+            'assets/icons/icon_account.png',
+            height: 60,
+            errorBuilder: (context, error, stackTrace) => Text(
+              'Konto',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Image.asset(
+              'assets/icons/icon_logout.png',
+              width: 42,
+              height: 42,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.logout),
+            ),
+            title: const Text('Abmelden'),
+            onTap: () => ref.read(authNotifierProvider.notifier).logout(),
           ),
           const Divider(height: 32),
           Text('Über die App', style: Theme.of(context).textTheme.titleMedium),

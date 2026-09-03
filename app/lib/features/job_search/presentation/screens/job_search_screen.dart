@@ -1,9 +1,17 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../cv_profile/domain/models/cv_profile.dart';
+import '../../../cv_profile/domain/services/cv_job_matcher.dart';
+import '../../../cv_profile/presentation/cv_import_action.dart';
+import '../../../cv_profile/presentation/providers/cv_profile_provider.dart';
+import '../../domain/models/job.dart';
 import '../providers/job_search_provider.dart';
 import '../widgets/job_list_tile.dart';
 import 'job_swipe_screen.dart';
+
+const _matcher = CvJobMatcher();
 
 class JobSearchScreen extends ConsumerStatefulWidget {
   const JobSearchScreen({super.key});
@@ -30,6 +38,16 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
     }
   }
 
+  /// Best CV matches first; unchanged order when the profile has no skills.
+  List<Job> _sortedByMatch(List<Job> jobs, CvProfile profile) {
+    if (profile.skills.isEmpty) return jobs;
+    final scored = jobs
+        .map((job) => (job, _matcher.match(profile, job.description ?? '').score))
+        .toList();
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.map((e) => e.$1).toList();
+  }
+
   void _submit() {
     FocusScope.of(context).unfocus();
     ref
@@ -49,24 +67,42 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(jobSearchNotifierProvider);
+    final cvProfile = ref.watch(cvProfileNotifierProvider);
+    final hasCv = cvProfile.skills.isNotEmpty || cvProfile.experience.isNotEmpty;
+    final displayJobs = _sortedByMatch(state.jobs, cvProfile);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jobsuche'),
+        title: Image.asset(
+          'assets/icons/icon_wobly_wordmark.png',
+          height: 113,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => const Text('Wobly'),
+        ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.style_outlined),
             tooltip: 'Kartenansicht',
-            onPressed: state.jobs.isEmpty
+            onPressed: displayJobs.isEmpty
                 ? null
                 : () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => JobSwipeScreen(jobs: state.jobs)),
+                    MaterialPageRoute(builder: (_) => JobSwipeScreen(jobs: displayJobs)),
                   ),
           ),
         ],
       ),
       body: Column(
         children: [
+          if (!hasCv)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: FilledButton.tonalIcon(
+                onPressed: () => importCvFromPdf(context, ref),
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text('Dein CV laden & analysieren'),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -91,12 +127,8 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
                   onSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: state.isLoading ? null : _submit,
-                    child: const Text('Suchen'),
-                  ),
+                _GlassSearchButton(
+                  onPressed: state.isLoading ? null : _submit,
                 ),
               ],
             ),
@@ -123,16 +155,16 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
                 }
                 return ListView.separated(
                   controller: _scrollController,
-                  itemCount: state.jobs.length + (state.hasMore ? 1 : 0),
+                  itemCount: displayJobs.length + (state.hasMore ? 1 : 0),
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    if (index >= state.jobs.length) {
+                    if (index >= displayJobs.length) {
                       return const Padding(
                         padding: EdgeInsets.all(16),
                         child: Center(child: CircularProgressIndicator()),
                       );
                     }
-                    final job = state.jobs[index];
+                    final job = displayJobs[index];
                     return JobListTile(
                       job: job,
                       onTap: () => context.push('/jobs/${job.source}/${job.id}'),
@@ -143,6 +175,61 @@ class _JobSearchScreenState extends ConsumerState<JobSearchScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GlassSearchButton extends StatelessWidget {
+  const _GlassSearchButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            child: Container(
+              width: double.infinity,
+              height: 72,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.2),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.blue.withValues(alpha: 0.35),
+                    Colors.pink.shade100.withValues(alpha: 0.35),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/icons/icon_search.png',
+                  height: 54,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Text('Suchen'),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

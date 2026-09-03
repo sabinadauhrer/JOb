@@ -16,3 +16,4 @@ app/android/.gradle/
 app/android/local.properties
 *.iml
 .DS_Store
+backend/data/

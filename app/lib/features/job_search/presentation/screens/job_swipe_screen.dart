@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../application/presentation/widgets/apply_confirm_sheet.dart';
+import '../../../cv_profile/domain/services/cv_job_matcher.dart';
+import '../../../cv_profile/presentation/providers/cv_profile_provider.dart';
+import '../../../cv_profile/presentation/widgets/match_stars.dart';
 import '../../domain/models/job.dart';
+
+const _skillMatcher = CvJobMatcher();
 
 class JobSwipeScreen extends ConsumerStatefulWidget {
   const JobSwipeScreen({super.key, required this.jobs});
@@ -14,8 +19,21 @@ class JobSwipeScreen extends ConsumerStatefulWidget {
 }
 
 class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
-  late final List<Job> _queue = [...widget.jobs];
+  late final List<Job> _queue = _sortedByMatch(widget.jobs);
   int _sentCount = 0;
+
+  /// Shows the best CV matches first, so swiping surfaces the most relevant
+  /// jobs early instead of in raw search-result order. Falls back to the
+  /// original order when the profile has no skills to match against yet.
+  List<Job> _sortedByMatch(List<Job> jobs) {
+    final profile = ref.read(cvProfileNotifierProvider);
+    if (profile.skills.isEmpty) return [...jobs];
+    final scored = jobs
+        .map((job) => (job, _skillMatcher.match(profile, job.description ?? '').score))
+        .toList();
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.map((e) => e.$1).toList();
+  }
 
   /// Opens the apply-confirmation sheet for a right-swipe/like. Returns
   /// whether the card should leave the deck (a decision was actually made -
@@ -36,11 +54,22 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Stellen entdecken'),
+        title: Image.asset(
+          'assets/icons/icon_wobly_wordmark.png',
+          height: 113,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => Text(
+            'Wobly',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Center(child: Text('$_sentCount gesendet')),
+            child: Center(child: Text('$_sentCount')),
           ),
         ],
       ),
@@ -54,20 +83,31 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
                     '${_queue.length} verbleibend',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '← Wischen zum Ablehnen · Wischen zum Merken →',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: Dismissible(
                       key: ValueKey('${_queue.first.source}-${_queue.first.id}'),
                       direction: DismissDirection.horizontal,
-                      background: _SwipeIndicator(
+                      dismissThresholds: const {
+                        DismissDirection.startToEnd: 0.25,
+                        DismissDirection.endToStart: 0.25,
+                      },
+                      background: const _SwipeIndicator(
                         alignment: Alignment.centerLeft,
                         color: Colors.green,
-                        icon: Icons.favorite,
+                        assetPath: 'assets/icons/icon_favorite.png',
                       ),
-                      secondaryBackground: _SwipeIndicator(
+                      secondaryBackground: const _SwipeIndicator(
                         alignment: Alignment.centerRight,
                         color: Colors.redAccent,
-                        icon: Icons.close,
+                        assetPath: 'assets/icons/icon_close.png',
                       ),
                       confirmDismiss: (direction) async {
                         if (direction == DismissDirection.endToStart) return true;
@@ -81,24 +121,52 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      FloatingActionButton(
-                        heroTag: 'skip',
-                        backgroundColor: Colors.redAccent,
-                        onPressed: () => _skip(_queue.first),
-                        child: const Icon(Icons.close),
+                      SizedBox(
+                        width: 96,
+                        height: 96,
+                        child: FloatingActionButton.large(
+                          heroTag: 'skip',
+                          backgroundColor: Colors.white,
+                          onPressed: () => _skip(_queue.first),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: Image.asset(
+                              'assets/icons/icon_close.png',
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.close, color: Colors.redAccent, size: 48),
+                            ),
+                          ),
+                        ),
                       ),
-                      FloatingActionButton(
-                        heroTag: 'like',
-                        backgroundColor: Colors.green,
-                        onPressed: () async {
-                          final job = _queue.first;
-                          if (await _confirmLike(job)) {
-                            setState(() => _queue.removeWhere(
-                              (j) => j.source == job.source && j.id == job.id,
-                            ));
-                          }
-                        },
-                        child: const Icon(Icons.favorite),
+                      SizedBox(
+                        width: 96,
+                        height: 96,
+                        child: FloatingActionButton.large(
+                          heroTag: 'like',
+                          backgroundColor: Colors.white,
+                          onPressed: () async {
+                            final job = _queue.first;
+                            if (await _confirmLike(job)) {
+                              setState(() => _queue.removeWhere(
+                                (j) => j.source == job.source && j.id == job.id,
+                              ));
+                            }
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: Image.asset(
+                              'assets/icons/icon_favorite.png',
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.favorite, color: Colors.green, size: 48),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -110,11 +178,11 @@ class _JobSwipeScreenState extends ConsumerState<JobSwipeScreen> {
 }
 
 class _SwipeIndicator extends StatelessWidget {
-  const _SwipeIndicator({required this.alignment, required this.color, required this.icon});
+  const _SwipeIndicator({required this.alignment, required this.color, required this.assetPath});
 
   final Alignment alignment;
   final Color color;
-  final IconData icon;
+  final String assetPath;
 
   @override
   Widget build(BuildContext context) {
@@ -122,42 +190,29 @@ class _SwipeIndicator extends StatelessWidget {
       decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Icon(icon, color: color, size: 40),
+      child: Image.asset(
+        assetPath,
+        width: 60,
+        height: 60,
+        errorBuilder: (context, error, stackTrace) => Icon(Icons.error, color: color, size: 60),
+      ),
     );
   }
 }
 
-class _JobSwipeCard extends StatelessWidget {
+class _JobSwipeCard extends ConsumerWidget {
   const _JobSwipeCard({required this.job});
 
   final Job job;
 
-  /// A short, sentence-aware excerpt rather than an arbitrary character cut,
-  /// so the card reads as a summary and doesn't end mid-word or mid-sentence.
-  String get _snippet {
-    final raw = job.description?.trim();
-    if (raw == null || raw.isEmpty) return 'Keine Beschreibung verfügbar.';
-
-    final normalized = raw.replaceAll(RegExp(r'\s+'), ' ');
-    const targetLength = 240;
-    if (normalized.length <= targetLength) return normalized;
-
-    final window = normalized.substring(0, targetLength);
-    final sentenceEnd = [
-      window.lastIndexOf('. '),
-      window.lastIndexOf('! '),
-      window.lastIndexOf('? '),
-    ].reduce((a, b) => a > b ? a : b);
-    if (sentenceEnd > targetLength ~/ 3) {
-      return window.substring(0, sentenceEnd + 1);
-    }
-
-    final wordEnd = window.lastIndexOf(' ');
-    return '${window.substring(0, wordEnd > 0 ? wordEnd : targetLength)}…';
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(cvProfileNotifierProvider);
+    final skills = _skillMatcher.extractSkills(job.description);
+    final matchResult = profile.skills.isEmpty
+        ? null
+        : _skillMatcher.match(profile, job.description ?? '');
+
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -166,7 +221,15 @@ class _JobSwipeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Chip(label: Text(job.source), visualDensity: VisualDensity.compact),
+            Row(
+              children: [
+                Chip(label: Text(job.source), visualDensity: VisualDensity.compact),
+                if (matchResult != null) ...[
+                  const SizedBox(width: 8),
+                  MatchStars(score: matchResult.score),
+                ],
+              ],
+            ),
             const SizedBox(height: 12),
             Text(job.title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 4),
@@ -175,9 +238,38 @@ class _JobSwipeCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
+            Text('Gesuchte Fähigkeiten', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(_snippet, style: Theme.of(context).textTheme.bodyMedium),
+                child: skills.isEmpty
+                    ? Text(
+                        'Keine bekannten Fähigkeiten in der Anzeige erkannt.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final skill in skills)
+                            Chip(
+                              avatar: matchResult != null && matchResult.matchedSkills.contains(skill)
+                                  ? Image.asset(
+                                      'assets/icons/icon_check.png',
+                                      width: 18,
+                                      height: 18,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const Icon(Icons.check, size: 18),
+                                    )
+                                  : null,
+                              label: Text(skill),
+                              backgroundColor: matchResult != null &&
+                                      matchResult.matchedSkills.contains(skill)
+                                  ? Colors.green.withValues(alpha: 0.15)
+                                  : null,
+                            ),
+                        ],
+                      ),
               ),
             ),
           ],
@@ -186,6 +278,7 @@ class _JobSwipeCard extends StatelessWidget {
     );
   }
 }
+
 
 class _EmptyQueue extends StatelessWidget {
   const _EmptyQueue({required this.hadAny});

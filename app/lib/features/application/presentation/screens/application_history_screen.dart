@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/widgets/delete_icon_button.dart';
 import '../../../job_search/domain/models/saved_job.dart';
 import '../../../job_search/presentation/providers/saved_jobs_provider.dart';
 import '../../domain/models/application.dart';
@@ -41,6 +42,7 @@ class _ApplicationsTab extends ConsumerWidget {
     if (sorted.isEmpty) {
       return _EmptyState(
         icon: Icons.history_edu_outlined,
+        iconAsset: 'assets/icons/icon_history.png',
         title: 'Noch keine Bewerbungen',
         message: 'Markiere Stellen auf der Detailseite als "beworben", '
             'damit sie hier mit Status und Verlauf erscheinen.',
@@ -104,12 +106,14 @@ class _SavedJobsTab extends ConsumerWidget {
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.icon,
+    this.iconAsset,
     required this.title,
     required this.message,
     required this.onSearchJobs,
   });
 
   final IconData icon;
+  final String? iconAsset;
   final String title;
   final String message;
   final VoidCallback onSearchJobs;
@@ -122,7 +126,20 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
+            if (iconAsset != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset(
+                  iconAsset!,
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
+                ),
+              )
+            else
+              Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
             Text(title, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
             const SizedBox(height: 8),
@@ -130,7 +147,16 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onSearchJobs,
-              icon: const Icon(Icons.search),
+              icon: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/icons/icon_search.png',
+                  width: 24,
+                  height: 24,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.search),
+                ),
+              ),
               label: const Text('Jobs durchsuchen'),
             ),
           ],
@@ -175,7 +201,7 @@ class _ApplicationTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
+                DeleteIconButton(onPressed: onDelete),
               ],
             ),
             const SizedBox(height: 8),
@@ -213,7 +239,7 @@ class _SavedJobTile extends StatelessWidget {
           [job.company, job.location].where((s) => s != null && s.isNotEmpty).join(' · '),
         ),
         onTap: onOpen,
-        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: onRemove),
+        trailing: DeleteIconButton(onPressed: onRemove),
       ),
     );
   }

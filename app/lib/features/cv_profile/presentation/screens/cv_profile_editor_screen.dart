@@ -1,52 +1,15 @@
-import 'dart:convert';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/widgets/delete_icon_button.dart';
 import '../../domain/models/cv_profile.dart';
 import '../../domain/services/cv_pdf_builder.dart';
+import '../cv_import_action.dart';
 import '../providers/cv_profile_provider.dart';
 
 const _uuid = Uuid();
-
-Future<void> _importCv(BuildContext context, WidgetRef ref) async {
-  final files = await FilePicker.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['pdf'],
-  );
-  if (files.isEmpty) return;
-
-  if (!context.mounted) return;
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
-  );
-
-  try {
-    final bytes = await files.single.readAsBytes();
-    final json = await ref
-        .read(cvImportRemoteDataSourceProvider)
-        .importFromPdfBase64(base64Encode(bytes));
-    ref.read(cvProfileNotifierProvider.notifier).replaceFromImportedJson(json);
-    if (context.mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('CV importiert. Bitte prüfen und ggf. anpassen.')),
-      );
-    }
-  } catch (e) {
-    if (context.mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import fehlgeschlagen: $e')),
-      );
-    }
-  }
-}
 
 class CvProfileEditorScreen extends ConsumerWidget {
   const CvProfileEditorScreen({super.key});
@@ -62,10 +25,20 @@ class CvProfileEditorScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.upload_file_outlined),
             tooltip: 'CV importieren (PDF)',
-            onPressed: () => _importCv(context, ref),
+            onPressed: () => importCvFromPdf(context, ref),
           ),
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_outlined),
+            icon: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/icons/icon_pdf_export.png',
+                width: 26,
+                height: 26,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.picture_as_pdf_outlined),
+              ),
+            ),
             tooltip: 'Als PDF exportieren',
             onPressed: () => Printing.layoutPdf(
               onLayout: (_) => const CvPdfBuilder().build(profile),
@@ -280,6 +253,12 @@ class _ExperienceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        leading: Image.asset(
+          'assets/icons/icon_edit.png',
+          width: 28,
+          height: 28,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.edit_outlined),
+        ),
         title: Text(experience.position.isEmpty ? 'Unbenannte Position' : experience.position),
         subtitle: Text(
           [
@@ -288,7 +267,7 @@ class _ExperienceTile extends StatelessWidget {
           ].where((s) => s.isNotEmpty).join(' · '),
         ),
         onTap: onTap,
-        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
+        trailing: DeleteIconButton(onPressed: onDelete),
       ),
     );
   }
@@ -309,6 +288,12 @@ class _EducationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        leading: Image.asset(
+          'assets/icons/icon_edit.png',
+          width: 28,
+          height: 28,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.edit_outlined),
+        ),
         title: Text(education.degree.isEmpty ? 'Unbenannter Abschluss' : education.degree),
         subtitle: Text(
           [
@@ -317,7 +302,7 @@ class _EducationTile extends StatelessWidget {
           ].where((s) => s.isNotEmpty).join(' · '),
         ),
         onTap: onTap,
-        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
+        trailing: DeleteIconButton(onPressed: onDelete),
       ),
     );
   }
